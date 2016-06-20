@@ -115,7 +115,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>3.8.2</version>
+      <version>RELEASE</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -129,8 +129,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.2</version>
         <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
+          <source>1.7</source>
+          <target>1.7</target>
         </configuration>
       </plugin>
       <!-- configure eclipse project -->
@@ -230,7 +230,7 @@
                   <pattern>com.google.monitoring.runtime.instrumentation.common.base.Suppliers</pattern>
                   <pattern>com.google.monitoring.runtime.instrumentation.common.primitives.Ints</pattern>
                   <pattern>com.google.monitoring.runtime.instrumentation.asm.**</pattern>
-                  <pattern>com.google.monitoring.runtime.instrumentation.*</pattern>
+                  <pattern>com.google.monitoring.**</pattern>
                </keep>
               </rules>
             </configuration>
@@ -249,7 +249,7 @@
               <Premain-Class>com.google.monitoring.runtime.instrumentation.AllocationInstrumenter</Premain-Class>
               <Can-Redefine-Classes>true</Can-Redefine-Classes>
               <Can-Retransform-Classes>true</Can-Retransform-Classes>
-              <Main-Class>NotSuitableAsMain</Main-Class>
+              <Main-Class>com.google.monitoring.flame.FlameCollapse</Main-Class>
             </manifestEntries>
           </archive>
         </configuration>
