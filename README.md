@@ -24,15 +24,17 @@ $ FlameGraph/flamegraph.pl collapsed.txt > flamegraph.svg
 
 Often there are multiple code paths into a particular package or class and due to the fact that flamegraphs start at the bottom of the stack trace this will cause a particular packages memory allocation to spread all across the flamegraph. You can search the flamegraph with regex's (ctrl-f) and it will highlight the search for you but often this isn't enough.
 
-![flamegraph](examples/1201_1414.png)
+![flamegraph](examples/highlighted_protobuf.png)
 
 To remedy this problem the FlameCollapse tool can consolidate all samples that lead to a specific package or class and filter out the rest. To use this simply provide the second parameter (it is NOT case sensitive).
 
 ```
-$ java -jar target/java-allocation-instrumenter-3.0-SNAPSHOT.jar stacks.txt com.google.protobuf
+$ java -jar target/java-allocation-instrumenter-3.0-SNAPSHOT.jar stacks.txt protobuf
 ```
 
 This filters out all stack frames prior to entering the specified package or class and all samples that do not pass through the filter. The filtered output can then be used to generate a flamegraph containing a unified summary of data from that package.
+
+![flamegraph](examples/group_by_protobuf.png)
 
 ## Building
 
