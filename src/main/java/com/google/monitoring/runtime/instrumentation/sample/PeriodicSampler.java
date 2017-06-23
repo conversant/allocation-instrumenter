@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * Created by jmaloney on 11/29/16.
  */
-public class PeriodicSampler implements SampleStrategy {
+public class PeriodicSampler extends SampleStrategy {
     private final AtomicLong nextSampleTime = new AtomicLong();
     private final long minSampleInterval;
     private final long jitter;

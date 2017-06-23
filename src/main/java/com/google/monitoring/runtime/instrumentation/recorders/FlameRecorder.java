@@ -15,11 +15,11 @@ import java.util.concurrent.BlockingQueue;
  */
 public class FlameRecorder implements Recorder {
 
-    private final BlockingQueue queue;
+    private final BlockingQueue<AllocationEvent> queue;
     private final long id;
     private final boolean recordSize;
 
-    public FlameRecorder(final BlockingQueue queue,
+    public FlameRecorder(final BlockingQueue<AllocationEvent> queue,
                          final long id,
                          final boolean recordSize){
         this.queue = queue;
@@ -48,5 +48,11 @@ public class FlameRecorder implements Recorder {
         }
     }
 
+    @Override
+    public void record(final String className, final long size) {
+        final StackTraceElement[] trace = Thread.currentThread().getStackTrace();
+        final AllocationEvent allocationEvent = new AllocationEvent(size, trace, className);
+        queue.offer(allocationEvent);
+    }
 
 }

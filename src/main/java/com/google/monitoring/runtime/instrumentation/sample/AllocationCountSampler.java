@@ -9,7 +9,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * Created by jmaloney on 11/29/16.
  */
-public class AllocationCountSampler implements SampleStrategy {
+public class AllocationCountSampler extends SampleStrategy {
 
     private final ThreadLocal<Long> threadLocalSampleCnt = new ThreadLocal<Long>() {
         @Override

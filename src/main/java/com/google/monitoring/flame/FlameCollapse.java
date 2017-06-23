@@ -79,14 +79,20 @@ public class FlameCollapse {
         }
     }
 
-    private void processLine(final Map<String, Long> traces, final String line) {
-        final String[] split = line.split(" ");
-        if (split.length < 2){
+    private void processLine(final Map<String, Long> traces, String line) {
+        int index = line.indexOf(";");
+        if (index == -1){
+            return;
+        }
+        line = line.substring(index);
+
+        index = lastSpace(line);
+        if (index == -1){
             System.out.println("Incomplete line(" + inputLineCount +"): "  + line);
             return;
         }
-        String key = split[0];
-        Long bytesAllocated = Long.valueOf(split[1]);
+        String key = line.substring(0, index);
+        Long bytesAllocated = Long.valueOf(line.substring(index + 1));
         if (methodFilter != null) {
             key = StackTraceParsers.squashTruncateNoFilter(key, methodFilter);
         } else {
@@ -104,6 +110,15 @@ public class FlameCollapse {
         } else {
             traces.put(key, bytesAllocated);
         }
+    }
+
+    private static int lastSpace(String string){
+        for(int i = string.length() - 1; i > 0; i--){
+            if (string.charAt(i) == ' '){
+                return i;
+            }
+        }
+        return -1;
     }
 
 

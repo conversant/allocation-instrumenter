@@ -5,4 +5,5 @@ package com.google.monitoring.runtime.instrumentation.recorders;
  */
 public interface Recorder {
     void record(int count, String desc, Object newObj);
+    void record(String className, long size);
 }

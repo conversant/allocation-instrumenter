@@ -45,4 +45,9 @@ public class LifetimeRecorder implements Recorder {
             queue.offer(lifetimeEvent);
         }
     }
+
+    @Override
+    public void record(String className, long size) {
+
+    }
 }

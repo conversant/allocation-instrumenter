@@ -70,8 +70,7 @@ public class LifetimePrinter extends Thread {
             for(int i = 0; i < eventList.size(); i++){
                 final LifetimeEvent event = eventList.get(i);
                 if (event.alive()){
-                    final String parsed = EventParser.parseEvent(event, verbosityLevel);
-                    writer.write(parsed);
+                    EventParser.parseEvent(event, verbosityLevel, writer);
                 }
             }
         } catch (IOException e) {

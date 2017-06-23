@@ -30,6 +30,13 @@ import com.google.monitoring.runtime.instrumentation.sample.SampleStrategy;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.util.Printer;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceMethodVisitor;
 
 import java.io.*;
 import java.lang.instrument.ClassFileTransformer;
@@ -37,6 +44,7 @@ import java.lang.instrument.Instrumentation;
 import java.lang.instrument.UnmodifiableClassException;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -83,12 +91,13 @@ public class AllocationInstrumenter implements ClassFileTransformer {
     }
 
     // No instantiating me except in premain() or in {@link JarClassTransformer}.
-    AllocationInstrumenter() {
+    private AllocationInstrumenter() {
     }
 
     public static void premain(final String agentArgs, final Instrumentation inst) {
         System.out.println("Loading allocation instrumentation...");
         AllocationRecorder.setInstrumentation(inst);
+        SizeUtil.init(inst);
 
         // Force eager class loading here; we need these classes in order to do
         // instrumentation, so if we don't do the eager class loading, we
@@ -98,6 +107,7 @@ public class AllocationInstrumenter implements ClassFileTransformer {
             Class.forName("sun.security.provider.PolicyFile");
             Class.forName("java.util.ResourceBundle");
             Class.forName("java.util.Date");
+            Class.forName("java.util.concurrent.ThreadLocalRandom");
         } catch (Throwable t) {
             // NOP
         }
@@ -150,7 +160,8 @@ public class AllocationInstrumenter implements ClassFileTransformer {
                 System.err.println("Unknown sample strategy! " + properties.sampleStrategy() + " Stopping instrumentations.");
                 return false;
         }
-        AllocationRecorder.setSampleStrategy(sampleStrategy);
+//        AllocationRecorder.setSampleStrategy(sampleStrategy);
+//        Recorders.sampleStrategy = sampleStrategy;
 
         // Setup recorder
         try{
@@ -175,6 +186,7 @@ public class AllocationInstrumenter implements ClassFileTransformer {
         final BlockingQueue<LifetimeEvent> queue = new ArrayBlockingQueue<>(2048);
         final LifetimePrinter printer = new LifetimePrinter(properties);
         printer.setQueue(queue);
+        printer.setDaemon(true);
         printer.start();
 
         final LifetimeRecorder lifetimeRecorder = new LifetimeRecorder(queue, printer.getId(), properties.recordSize());
@@ -193,14 +205,24 @@ public class AllocationInstrumenter implements ClassFileTransformer {
 
     }
 
+    static FlameRecorder recorder;
+
     private static void setupFlameSampler(final InstrumentationProperties properties) throws FileNotFoundException, UnsupportedEncodingException {
         final BlockingQueue<AllocationEvent> queue = new ArrayBlockingQueue<>(2048);
         final FlamePrinter printer = new FlamePrinter(properties);
         printer.setQueue(queue);
+        printer.setDaemon(true);
         printer.start();
 
-        final FlameRecorder flameRecorder = new FlameRecorder(queue,printer.getId(), properties.recordSize());
+        final FlameRecorder flameRecorder = new FlameRecorder(queue, printer.getId(), properties.recordSize());
         AllocationRecorder.setRecorder(flameRecorder);
+        recorder = flameRecorder;
+        Recorders.PRINTER_THREAD_ID = printer.getId();
+        try {
+            Class.forName("com.google.monitoring.runtime.instrumentation.Recorders");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -240,7 +262,6 @@ public class AllocationInstrumenter implements ClassFileTransformer {
                     "retransform early loaded classes.");
         }
 
-
     }
 
     @Override
@@ -264,24 +285,18 @@ public class AllocationInstrumenter implements ClassFileTransformer {
      * reflection API's Array.newInstance() and instrument those too.
      *
      * @param originalBytes  the original <code>byte[]</code> code.
-     * @param recorderClass  the <code>String</code> internal name of the class
-     *                       containing the recorder method to run.
-     * @param recorderMethod the <code>String</code> name of the recorder method
-     *                       to run.
      * @param loader         the <code>ClassLoader</code> for this class.
      * @return the instrumented <code>byte[]</code> code.
      */
     public static byte[] instrument(final byte[] originalBytes,
-                                    final String recorderClass,
-                                    final String recorderMethod,
                                     final ClassLoader loader) {
         final ClassReader cr = new ClassReader(originalBytes);
         try {
 
             //Don't instrument this package except for its test class
-            if (cr.getClassName().contains("com\\google\\monitoring\\runtime\\instrumentation\\") ){
+            if (cr.getClassName().contains("com/google/monitoring/runtime/instrumentation/")){
                 if (!cr.getClassName().contains("Test")){
-                    return originalBytes;
+                    return null;
                 }
             }
 
@@ -290,34 +305,48 @@ public class AllocationInstrumenter implements ClassFileTransformer {
             final ClassWriter cw = new StaticClassWriter(cr, ClassWriter.COMPUTE_FRAMES, loader);
 
             final VerifyingClassAdapter vcw = new VerifyingClassAdapter(cw, originalBytes, cr.getClassName());
-            final ClassVisitor adapter = new AllocationClassAdapter(vcw, recorderClass, recorderMethod);
+            final ClassVisitor adapter = new AllocationClassAdapter(vcw);
 
-            cr.accept(adapter, ClassReader.SKIP_FRAMES);
+            cr.accept(adapter, 0);
+
+            if (cr.getClassName().contains("Test")) {
+                print(vcw.toByteArray());
+            }
 
             return vcw.toByteArray();
         } catch (RuntimeException e) {
-            logger.log(Level.WARNING, "Failed to instrument class.", e);
+            logger.log(Level.WARNING, "Failed to instrument class. " + cr.getClassName(), e);
             throw e;
-        } catch (Error e) {
-            logger.log(Level.WARNING, "Failed to instrument class.", e);
+        } catch (Throwable e) {
+            logger.log(Level.WARNING, "Failed to instrument class. " + cr.getClassName(), e);
             throw e;
         }
     }
 
 
-    /**
-     * @param originalBytes The original version of the class.
-     * @param loader        The ClassLoader of this class.
-     * @return the instrumented version of this class.
-     * @see #instrument(byte[], String, String, ClassLoader)
-     * documentation for the 4-arg version.  This is a convenience
-     * version that uses the recorder in this class.
-     */
-    public static byte[] instrument(final byte[] originalBytes, final ClassLoader loader) {
-        return instrument(
-                originalBytes,
-                "com/google/monitoring/runtime/instrumentation/AllocationRecorder",
-                "recordAllocation",
-                loader);
+    private static void print(byte[] in) {
+        ClassReader reader = new ClassReader(in);
+        ClassNode classNode = new ClassNode();
+        reader.accept(classNode,0);
+        @SuppressWarnings("unchecked")
+        final List<MethodNode> methods = classNode.methods;
+        for(MethodNode m: methods){
+            InsnList inList = m.instructions;
+            System.out.println(m.name);
+            for(int i = 0; i< inList.size(); i++){
+                System.out.print(insnToString(inList.get(i)));
+            }
+        }
     }
+
+    private static String insnToString(AbstractInsnNode insn){
+        insn.accept(mp);
+        StringWriter sw = new StringWriter();
+        printer.print(new PrintWriter(sw));
+        printer.getText().clear();
+        return sw.toString();
+    }
+
+    private static Printer printer = new Textifier();
+    private static TraceMethodVisitor mp = new TraceMethodVisitor(printer);
 }

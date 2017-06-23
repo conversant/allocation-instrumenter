@@ -88,4 +88,22 @@ public class ObjectSizeMeasurement {
 
         return classSize;
     }
+
+    public static long getObjectSize(final Class<?> cls, final boolean isArray, final Instrumentation instr) {
+//        if (isArray) {
+//            return instr.getObjectSize(obj);
+//        }
+
+        Long classSize = classSizesMap.get(cls);
+        if (classSize == null) {
+            try {
+                classSize = instr.getObjectSize(UnsafeHolder.UNSAFE.allocateInstance(cls));
+            } catch (InstantiationException e ) {
+                classSize = -1L;
+            }
+            classSizesMap.put(cls, classSize);
+        }
+
+        return classSize;
+    }
 }

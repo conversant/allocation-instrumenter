@@ -1,6 +1,8 @@
 package com.google.monitoring.runtime.instrumentation.events;
 
 
+import java.io.IOException;
+
 /**
  * Created by jmaloney on 11/29/16.
  */
@@ -21,16 +23,16 @@ public class EventParser {
      *
      * @param event the event to parse
      * @param verbosityLevel the verbosityLevel to parse the event into
-     * @return a string representation of the event
      */
-    public static String parseEvent(final Event event, final VerbosityLevel verbosityLevel){
-        final StringBuilder builder = new StringBuilder();
+    public static void parseEvent(final Event event,
+                                    final VerbosityLevel verbosityLevel,
+                                    final Appendable builder) throws IOException {
         for (int i = event.getTrace().length - 1; i >= 0 ; i--){
             final StackTraceElement stackTraceElement = event.getTrace()[i];
             if (stackTraceElement.getClassName() == null || stackTraceElement.getMethodName() == null) {
-                return "";
+                return;
             } else if (stackTraceElement.getClassName().startsWith("com.google.monitoring.runtime.instrumentation.")){
-                //truncate the stack trace once it gets into instrumentation
+                // truncate the stack trace once it gets into instrumentation
                 break;
             }
 
@@ -48,13 +50,12 @@ public class EventParser {
                             .append(".")
                             .append(stackTraceElement.getMethodName())
                             .append(":")
-                            .append(stackTraceElement.getLineNumber());
+                            .append(Integer.toString(stackTraceElement.getLineNumber()));
                     break;
             }
 
             builder.append(";");
         }
-        builder.append(event.getObjectName()).append(" ").append(event.getSize()).append("\n");
-        return builder.toString();
+        builder.append(event.getObjectName()).append(" ").append(Long.toString(event.getSize())).append("\n");
     }
 }

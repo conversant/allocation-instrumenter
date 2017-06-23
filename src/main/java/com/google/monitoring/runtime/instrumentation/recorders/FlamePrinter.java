@@ -5,7 +5,6 @@ import com.google.monitoring.runtime.instrumentation.events.AllocationEvent;
 import com.google.monitoring.runtime.instrumentation.events.EventParser;
 
 import java.io.*;
-import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -15,9 +14,14 @@ import java.util.concurrent.TimeUnit;
  * Created by jmaloney on 5/23/2016.
  */
 public class FlamePrinter extends Thread {
-    private BlockingQueue<AllocationEvent> queue;
+
     private final Writer writer;
     private final EventParser.VerbosityLevel verbosityLevel;
+    private final long startTime = System.currentTimeMillis();
+
+    private BlockingQueue<AllocationEvent> queue;
+    private int eventCnt = 0;
+    private long nextTime = System.currentTimeMillis();
 
     public FlamePrinter(final InstrumentationProperties properties) throws FileNotFoundException, UnsupportedEncodingException {
         writer = new BufferedWriter(new OutputStreamWriter( new FileOutputStream(properties.outputPath()), "utf-8"));
@@ -29,10 +33,25 @@ public class FlamePrinter extends Thread {
     }
 
     private void process(final AllocationEvent event){
-        final String entry = EventParser.parseEvent(event, verbosityLevel);
-        if (!entry.equals("")) {
+        try {
+            eventCnt++;
+            EventParser.parseEvent(event, verbosityLevel, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stats() {
+        final long now = System.currentTimeMillis();
+        if (now > nextTime) {
+            nextTime += 30_000;
             try {
-                writer.write(entry);
+                writer.append("# RUNTIME: ")
+                        .append(Double.toString((now - startTime) / 1000.0d))
+                        .append(" seconds SAMPLE RATE: ")
+                        .append(Double.toString(eventCnt / 30.0d))
+                        .append(" allocations/second\n");
+                eventCnt = 0;
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -52,6 +71,7 @@ public class FlamePrinter extends Thread {
                 if (event != null) {
                     process(event);
                 }
+                stats();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

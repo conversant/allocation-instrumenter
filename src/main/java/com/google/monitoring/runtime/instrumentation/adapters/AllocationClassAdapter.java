@@ -31,15 +31,21 @@ import org.objectweb.asm.commons.JSRInlinerAdapter;
  * @author fischman@google.com (Ami Fischman) (Original Author)
  */
 public class AllocationClassAdapter extends ClassVisitor {
-    private final String recorderClass;
-    private final String recorderMethod;
 
-    public AllocationClassAdapter(final ClassVisitor cv,
-                                  final String recorderClass,
-                                  final String recorderMethod) {
+    private static final int MAJOR_VERSION_MASK = 0xffff;
+
+    public AllocationClassAdapter(final ClassVisitor cv) {
         super(Opcodes.ASM5, cv);
-        this.recorderClass = recorderClass;
-        this.recorderMethod = recorderMethod;
+    }
+
+    @Override
+    public void visit(int version, int access, String name, String signature,
+                      String superName, String[] interfaces) {
+        // We need to roll forward the version so that we can do the ldc classname instruction
+        if ((version & MAJOR_VERSION_MASK) < 49) {
+            version = 49 | (version & Opcodes.ACC_DEPRECATED);
+        }
+        super.visit(version, access, name, signature, superName, interfaces);
     }
 
     /**
@@ -60,10 +66,12 @@ public class AllocationClassAdapter extends ClassVisitor {
             // done for old bytecode that contains JSR and RET instructions.
             // So, we remove JSRs and RETs.
             final JSRInlinerAdapter jsria = new JSRInlinerAdapter(mv, access, base, desc, signature, exceptions);
-            final AllocationMethodAdapter aimv = new AllocationMethodAdapter(jsria, recorderClass, recorderMethod);
-            final LocalVariablesSorter lvs = new LocalVariablesSorter(access, desc, aimv);
-            aimv.lvs = lvs;
-            mv = lvs;
+//            final AllocationMethodAdapter aimv = new AllocationMethodAdapter(jsria, recorderClass, recorderMethod);
+            final MethodAdapter aimv = new MethodAdapter(jsria);
+            mv = aimv;
+//            final LocalVariablesSorter lvs = new LocalVariablesSorter(access, desc, aimv);
+//            aimv.lvs = lvs;
+//            mv = lvs;
         }
         return mv;
     }
