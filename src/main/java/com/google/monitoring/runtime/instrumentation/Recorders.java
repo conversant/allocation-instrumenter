@@ -14,15 +14,14 @@ public class Recorders {
             return Thread.currentThread().getId() == PRINTER_THREAD_ID;
         }
     };
+
     private static final RandomSampler RANDOM_SAMPLER = new RandomSampler();
     private static final FlameRecorder RECORDER = AllocationInstrumenter.recorder;
-
-    static long PRINTER_THREAD_ID;
+    private static final long PRINTER_THREAD_ID = AllocationInstrumenter.PRINTER_THREAD_ID;
 
 
     private static void recordAllocation(final String className, final long size) {
         RECORDER.record(className, size);
-//        System.out.println(className + " " + size);
     }
 
 

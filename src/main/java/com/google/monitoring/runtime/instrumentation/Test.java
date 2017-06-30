@@ -20,14 +20,28 @@ public class Test {
 //    private static List<Entity> entities = new ArrayList<>();
     private static List<boolean[][]> nestedBools = new ArrayList<>();
 
+    private static List<Runnable> runnables = new ArrayList<>();
+
     public static void main(String [] args) throws Exception {
         try {
 
 
+//        while (true) {
+//            stringList.add(ThreadLocalRandom.current().nextLong() + "" + ThreadLocalRandom.current().nextLong() + "da" + ThreadLocalRandom.current().nextLong());
+//            if (ThreadLocalRandom.current().nextLong() % 100 == 0) {
+//                stringList.clear();
+//            }
+//        }
+
+            long cnt = 0;
         while (true) {
-            stringList.add(ThreadLocalRandom.current().nextLong() + "" + ThreadLocalRandom.current().nextLong() + "da" + ThreadLocalRandom.current().nextLong());
+            runnables.add(() -> runnables.size());
             if (ThreadLocalRandom.current().nextLong() % 100 == 0) {
-                stringList.clear();
+                runnables.clear();
+            }
+            cnt++;
+            if (ThreadLocalRandom.current().nextLong() % 1000000 == 0) {
+                System.out.println("here " + cnt);
             }
         }
 

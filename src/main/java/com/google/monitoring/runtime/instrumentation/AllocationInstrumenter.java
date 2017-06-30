@@ -206,6 +206,7 @@ public class AllocationInstrumenter implements ClassFileTransformer {
     }
 
     static FlameRecorder recorder;
+    static long PRINTER_THREAD_ID;
 
     private static void setupFlameSampler(final InstrumentationProperties properties) throws FileNotFoundException, UnsupportedEncodingException {
         final BlockingQueue<AllocationEvent> queue = new ArrayBlockingQueue<>(2048);
@@ -217,7 +218,7 @@ public class AllocationInstrumenter implements ClassFileTransformer {
         final FlameRecorder flameRecorder = new FlameRecorder(queue, printer.getId(), properties.recordSize());
         AllocationRecorder.setRecorder(flameRecorder);
         recorder = flameRecorder;
-        Recorders.PRINTER_THREAD_ID = printer.getId();
+        PRINTER_THREAD_ID = printer.getId();
         try {
             Class.forName("com.google.monitoring.runtime.instrumentation.Recorders");
         } catch (ClassNotFoundException e) {
